@@ -1,4 +1,3 @@
-#include <iostream>
 
 #include <boost/geometry.hpp>
 
@@ -100,20 +99,12 @@ void simplify(Polygon const &p, Polygon &result, double max_distance)
 	for(std::size_t j = 0; j < p.outer().size() - 1; ++j) 
 		outer_rtree.insert({ p.outer()[j], p.outer()[j + 1] });    
 
-	std::vector<Ring> combined_inners;
-	for(size_t i = 0; i < p.inners().size(); ++i) {
-		Ring new_inner = p.inners()[i];
-		if(boost::geometry::area(new_inner) < 0) {
-			std::reverse(new_inner.begin(), new_inner.end());
-			simplify_combine(combined_inners, std::move(new_inner));
-		}
-	}
-
 	std::vector<Ring> new_inners;
-	for(size_t i = 0; i < combined_inners.size(); ++i) {
+	for(auto const &inner: p.inners()) {
 		Ring new_inner;
-		simplify(combined_inners[i], new_inner, max_distance, outer_rtree);
+		simplify(inner, new_inner, max_distance, outer_rtree);
 
+		std::reverse(new_inner.begin(), new_inner.end());
 		if(boost::geometry::area(new_inner) > max_distance * max_distance) {
 			simplify_combine(new_inners, std::move(new_inner));
 		}
@@ -138,14 +129,7 @@ void simplify(Polygon const &p, Polygon &result, double max_distance)
 
 void simplify(MultiPolygon const &mp, MultiPolygon &result, double max_distance) 
 {
-	MultiPolygon combined_mp;
 	for(auto const &p: mp) {
-    	if(!p.outer().empty()) {
-			simplify_combine(combined_mp, Polygon(p));
-		}
-	}
-
-	for(auto const &p: combined_mp) {
 		Polygon new_p;
 		simplify(p, new_p, max_distance);
     	if(!new_p.outer().empty()) {
@@ -154,24 +138,20 @@ void simplify(MultiPolygon const &mp, MultiPolygon &result, double max_distance)
 	}
 }
 
-#include <boost/assign.hpp>
-using namespace boost::assign;
+#include <iostream>
 
 int main()
 {
 	MultiPolygon mp;
-
-	Polygon p;
-	p.outer() += Point(1.1, 1.1), Point(2.5, 2.1), Point(3.1, 3.1), Point(4.9, 1.1), Point(3.1, 1.9), Point(1.1, 1.1);
-	mp.push_back(p);
+	boost::geometry::read_wkt("MULTIPOLYGON(((0 10,10 10,10 0,0 0,0 10),(1.1 1.1,3.1 1.9,4.9 1.1,3.1 3.1,2.5 2.1,1.1 1.1)))", mp);
 
     // Simplify it, using distance of 0.5 units
     MultiPolygon simplified;
     boost::geometry::simplify(mp, simplified, 0.5);
 
     std::cout
-        << "  original: " << boost::geometry::dsv(p) << std::endl
-        << "simplified: " << boost::geometry::dsv(simplified) << std::endl; 
+        << "  original: " << boost::geometry::wkt(mp) << ", valid: " << std::boolalpha << boost::geometry::is_valid(mp) << std::endl
+        << "simplified: " << boost::geometry::wkt(simplified) << ", valid: " << std::boolalpha << boost::geometry::is_valid(simplified) << std::endl; 
     
 	return 0;
 }
