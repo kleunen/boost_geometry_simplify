@@ -1,12 +1,6 @@
 #include <iostream>
 
 #include <boost/geometry.hpp>
-#include <boost/geometry/geometries/linestring.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
-
-#include <boost/assign.hpp>
-
-using namespace boost::assign;
 
 typedef boost::geometry::model::d2::point_xy<double> Point; 
 typedef boost::geometry::model::polygon<Point> Polygon;
@@ -50,7 +44,7 @@ struct simplify_rtree_counter
 };
 
 template<typename GeometryType>
-void perform_simplify(GeometryType const &input, GeometryType &output, double max_distance, simplify_rtree const &outer_rtree = simplify_rtree())
+void simplify(GeometryType const &input, GeometryType &output, double max_distance, simplify_rtree const &outer_rtree = simplify_rtree())
 {        
 	simplify_rtree rtree;
 
@@ -77,7 +71,7 @@ void perform_simplify(GeometryType const &input, GeometryType &output, double ma
         for(auto i = start + 1; i < end; ++i) 
             distance = std::max(distance, boost::geometry::distance(line, input[i]));          
     
-        if(boost::geometry::distance(input[start], input[end]) < 2 * max_distance || distance < max_distance) {
+        if(distance < max_distance) {
             simplify_rtree_counter result;
             boost::geometry::index::query(rtree, boost::geometry::index::intersects(line), std::back_inserter(result));
             boost::geometry::index::query(outer_rtree, boost::geometry::index::intersects(line), std::back_inserter(result));
@@ -118,7 +112,7 @@ void simplify(Polygon const &p, Polygon &result, double max_distance)
 	std::vector<Ring> new_inners;
 	for(size_t i = 0; i < combined_inners.size(); ++i) {
 		Ring new_inner;
-		perform_simplify(combined_inners[i], new_inner, max_distance, outer_rtree);
+		simplify(combined_inners[i], new_inner, max_distance, outer_rtree);
 
 		if(boost::geometry::area(new_inner) > max_distance * max_distance) {
 			simplify_combine(new_inners, std::move(new_inner));
@@ -131,7 +125,7 @@ void simplify(Polygon const &p, Polygon &result, double max_distance)
 			inners_rtree.insert({ inner[z], inner[z + 1] });    
 	} 
 
-	perform_simplify(p.outer(), result.outer(), max_distance, inners_rtree);
+	simplify(p.outer(), result.outer(), max_distance, inners_rtree);
 	if(boost::geometry::area(result.outer()) < max_distance * max_distance) {
 		return;
 	}
@@ -159,6 +153,9 @@ void simplify(MultiPolygon const &mp, MultiPolygon &result, double max_distance)
 		}
 	}
 }
+
+#include <boost/assign.hpp>
+using namespace boost::assign;
 
 int main()
 {
