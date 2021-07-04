@@ -10,10 +10,10 @@ void benchmark()
 
   	auto const start = std::chrono::steady_clock::now();
 
-	constexpr std::size_t count = 1000000;
+	constexpr std::size_t count = 10000;
 	for(std::size_t i = 0; i < count; ++i) {
 		MultiPolygon result;
-    	boost::geometry::simplify(poly, result, 40);
+    	simplify(poly, result, 40);
 	}
 
   	auto const end = std::chrono::steady_clock::now();
@@ -28,7 +28,7 @@ int main()
 
     // Simplify it, using distance of 0.5 units
     MultiPolygon simplified;
-    boost::geometry::simplify(mp, simplified, 0.5);
+    simplify(mp, simplified, 0.5);
 
     std::cout
         << "  original: " << boost::geometry::wkt(mp) << ", valid: " << std::boolalpha << boost::geometry::is_valid(mp) << std::endl

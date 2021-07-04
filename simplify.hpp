@@ -2,10 +2,8 @@
 #define __SIMPLIFY_H__
 
 #include <boost/geometry.hpp>
-
-#include <boost/range/adaptor/indexed.hpp>
-#include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/irange.hpp>
 
 typedef boost::geometry::model::d2::point_xy<double> Point; 
 typedef boost::geometry::model::polygon<Point> Polygon;
@@ -47,10 +45,11 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
     for(std::size_t i = 0; i < input.size(); ++i) 
         nodes[i] = i;
 
-	simplify_rtree rtree(input 
-		| boost::adaptors::indexed() 
-		| boost::adaptors::filtered([&input](auto const &i) { return i.index() < input.size() - 1; })
-		| boost::adaptors::transformed([&input](auto const &i) { return simplify_segment(input[i.index()], input[i.index()+1]); }));
+	simplify_rtree rtree(
+		boost::irange<std::size_t>(0, input.size() - 1)
+		| boost::adaptors::transformed([&input](std::size_t i) { 
+			return simplify_segment(input[i], input[i+1]); 
+		}));
 
     std::priority_queue<std::size_t, std::vector<size_t>> pq;
     for(std::size_t i = 0; i < input.size() - 2; ++i) 
@@ -96,10 +95,11 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
 
 static inline void simplify(Polygon const &p, Polygon &result, double max_distance) 
 {
-	simplify_rtree outer_rtree(p.outer()
-		| boost::adaptors::indexed() 
-		| boost::adaptors::filtered([&p](auto const &i) { return i.index() < p.outer().size() - 1; })
-		| boost::adaptors::transformed([&p](auto const &i) { return simplify_segment(p.outer()[i.index()], p.outer()[i.index()+1]); }));
+	simplify_rtree outer_rtree(
+		boost::irange<std::size_t>(0, p.outer().size() - 1)
+		| boost::adaptors::transformed([&p](std::size_t i) { 
+			return simplify_segment(p.outer()[i], p.outer()[i+1]); 
+		}));
 
 	std::vector<Ring> new_inners;
 	for(auto const &inner: p.inners()) {
@@ -114,8 +114,11 @@ static inline void simplify(Polygon const &p, Polygon &result, double max_distan
 
 	simplify_rtree inners_rtree;
 	for(auto const &inner: new_inners) {
-		for(std::size_t z = 0; z < inner.size() - 1; ++z) 
-			inners_rtree.insert({ inner[z], inner[z + 1] });    
+		inners_rtree.insert(
+			boost::irange<std::size_t>(0, inner.size() - 1)
+			| boost::adaptors::transformed([&inner](std::size_t i) { 
+				return simplify_segment(inner[i], inner[i+1]); 
+			}));
 	} 
 
 	simplify(p.outer(), result.outer(), max_distance, inners_rtree);
