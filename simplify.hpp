@@ -39,21 +39,21 @@ static inline void simplify_combine(C &result, T &&new_element)
 template<typename GeometryType>
 static inline void simplify(GeometryType const &input, GeometryType &output, double max_distance, simplify_rtree const &outer_rtree = simplify_rtree())
 {        
-	simplify_rtree rtree;
-
     std::deque<std::size_t> nodes(input.size());
     for(std::size_t i = 0; i < input.size(); ++i) 
         nodes[i] = i;
+
+	simplify_rtree rtree;
     for(std::size_t i = 0; i < input.size() - 1; ++i)
         rtree.insert({ input[i], input[i + 1] });    
 
-    std::priority_queue<std::size_t, std::vector<size_t>> pq;
+    std::vector<std::size_t> pq;
     for(std::size_t i = 0; i < input.size() - 2; ++i) 
-        pq.push(i);      
+        pq.push_back(i);      
         
     while(!pq.empty()) {
-        auto entry = pq.top();
-        pq.pop();
+        auto entry = pq.back();
+        pq.pop_back();
         
         auto start = nodes[entry];
         auto middle = nodes[entry + 1];
@@ -78,7 +78,7 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
                 rtree.insert(line);
         
                 if(entry + 2 < nodes.size()) {
-                    pq.push(start);             
+                    pq.push_back(start);             
                 }
             }
         }
