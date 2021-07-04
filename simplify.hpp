@@ -37,7 +37,7 @@ static inline void simplify_combine(C &result, T &&new_element)
 }
 
 template<typename GeometryType>
-static inline void simplify(GeometryType const &input, GeometryType &output, double max_distance, simplify_rtree const &outer_rtree = simplify_rtree())
+static inline void simplify(GeometryType const &input, GeometryType &output, double distance, simplify_rtree const &outer_rtree = simplify_rtree())
 {        
     std::deque<std::size_t> nodes(input.size());
     for(std::size_t i = 0; i < input.size(); ++i) 
@@ -60,11 +60,19 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
         auto end = nodes[entry + 2];
 
         simplify_segment line(input[start], input[end]);
-        double distance = 0.0;
-        for(auto i = start + 1; i < end; ++i) 
-            distance = std::max(distance, boost::geometry::distance(line, input[i]));          
+
+        double max_comp_distance = 0.0;
+		std::size_t max_comp_i = start + 1;
+	
+        for(auto i = start + 1; i < end; ++i) { 
+			auto comp_distance = boost::geometry::comparable_distance(line, input[i]);
+            if(comp_distance > max_comp_distance) {
+				max_comp_distance = comp_distance;
+				max_comp_i = i;
+			}
+		}
  
-        if(distance < max_distance) {
+        if(boost::geometry::distance(line, input[max_comp_i]) < distance) {
 			std::size_t query_count = 0;
             for(auto const &result: rtree | boost::geometry::index::adaptors::queried(boost::geometry::index::intersects(line)))
 				++query_count;
