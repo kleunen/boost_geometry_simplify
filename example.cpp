@@ -2,7 +2,7 @@
 #include <iostream>
 #include <chrono>
 
-void benchmark()
+void benchmark(bool use_boost)
 {
 	// Benchmark overlapping approach
 	MultiPolygon poly;
@@ -13,12 +13,15 @@ void benchmark()
 	constexpr std::size_t count = 10000;
 	for(std::size_t i = 0; i < count; ++i) {
 		MultiPolygon result;
-    	simplify(poly, result, 40);
+		if(use_boost)
+	    	boost::geometry::simplify(poly, result, 40);
+		else
+	    	simplify(poly, result, 40);
 	}
 
   	auto const end = std::chrono::steady_clock::now();
   	auto const ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-  	std::cout << " time: " << (double)ms / count << std::endl;
+  	std::cout << (use_boost ? " time boost: " : " time self-intersection: ") << (double)ms / count << std::endl;
 }
 
 int main()
@@ -34,6 +37,7 @@ int main()
         << "  original: " << boost::geometry::wkt(mp) << ", valid: " << std::boolalpha << boost::geometry::is_valid(mp) << std::endl
         << "simplified: " << boost::geometry::wkt(simplified) << ", valid: " << std::boolalpha << boost::geometry::is_valid(simplified) << std::endl; 
  
-	benchmark();   
+	benchmark(true);   
+	benchmark(false);   
 	return 0;
 }
