@@ -3,6 +3,10 @@
 
 #include <boost/geometry.hpp>
 
+#include <boost/range/adaptor/indexed.hpp>
+#include <boost/range/adaptor/filtered.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+
 typedef boost::geometry::model::d2::point_xy<double> Point; 
 typedef boost::geometry::model::polygon<Point> Polygon;
 typedef boost::geometry::ring_type<Polygon>::type Ring;
@@ -39,13 +43,14 @@ static inline void simplify_combine(C &result, T &&new_element)
 template<typename GeometryType>
 static inline void simplify(GeometryType const &input, GeometryType &output, double max_distance, simplify_rtree const &outer_rtree = simplify_rtree())
 {        
-	simplify_rtree rtree;
-
     std::deque<std::size_t> nodes(input.size());
     for(std::size_t i = 0; i < input.size(); ++i) 
         nodes[i] = i;
-    for(std::size_t i = 0; i < input.size() - 1; ++i)
-        rtree.insert({ input[i], input[i + 1] });    
+
+	simplify_rtree rtree(input 
+		| boost::adaptors::indexed() 
+		| boost::adaptors::filtered([&input](auto const &i) { return i.index() < input.size() - 1; })
+		| boost::adaptors::transformed([&input](auto const &i) { return simplify_segment(input[i.index()], input[i.index()+1]); }));
 
     std::priority_queue<std::size_t, std::vector<size_t>> pq;
     for(std::size_t i = 0; i < input.size() - 2; ++i) 
@@ -91,9 +96,10 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
 
 static inline void simplify(Polygon const &p, Polygon &result, double max_distance) 
 {
-	simplify_rtree outer_rtree;
-	for(std::size_t j = 0; j < p.outer().size() - 1; ++j) 
-		outer_rtree.insert({ p.outer()[j], p.outer()[j + 1] });    
+	simplify_rtree outer_rtree(p.outer()
+		| boost::adaptors::indexed() 
+		| boost::adaptors::filtered([&p](auto const &i) { return i.index() < p.outer().size() - 1; })
+		| boost::adaptors::transformed([&p](auto const &i) { return simplify_segment(p.outer()[i.index()], p.outer()[i.index()+1]); }));
 
 	std::vector<Ring> new_inners;
 	for(auto const &inner: p.inners()) {
@@ -113,13 +119,11 @@ static inline void simplify(Polygon const &p, Polygon &result, double max_distan
 	} 
 
 	simplify(p.outer(), result.outer(), max_distance, inners_rtree);
-	if(boost::geometry::area(result.outer()) < max_distance * max_distance) {
-		return;
-	}
-
-	for(auto&& r: new_inners) {
-		std::reverse(r.begin(), r.end());
-		result.inners().push_back(r);
+	if(boost::geometry::area(result.outer()) >= max_distance * max_distance) {
+		for(auto&& r: new_inners) {
+			std::reverse(r.begin(), r.end());
+			result.inners().push_back(r);
+		}
 	} 
 }
 

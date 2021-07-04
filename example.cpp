@@ -10,7 +10,7 @@ void benchmark()
 
   	auto const start = std::chrono::steady_clock::now();
 
-	constexpr std::size_t count = 100000;
+	constexpr std::size_t count = 1000000;
 	for(std::size_t i = 0; i < count; ++i) {
 		MultiPolygon result;
     	boost::geometry::simplify(poly, result, 40);
