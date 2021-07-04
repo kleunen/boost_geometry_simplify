@@ -37,10 +37,14 @@ int main()
     MultiPolygon simplified;
     simplify(mp, simplified, 0.5);
 
+    MultiPolygon boost_simplified;
+    simplify(mp, boost_simplified, 0.5);
+
     std::cout
         << "  original: " << boost::geometry::dsv(mp) << std::endl
-        << "simplified: " << boost::geometry::dsv(simplified) << std::endl; 
- 
+        << "simplified: " << boost::geometry::dsv(simplified) << std::endl
+        << "boost simplified: " << boost::geometry::dsv(boost_simplified) << std::endl; 
+   
 	benchmark(true);   
 	benchmark(false);   
 	return 0;
