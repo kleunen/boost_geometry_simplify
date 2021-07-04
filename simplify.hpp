@@ -47,9 +47,9 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
     for(std::size_t i = 0; i < input.size() - 1; ++i)
         rtree.insert({ input[i], input[i + 1] });    
 
-    std::vector<std::size_t> pq;
+    std::vector<std::size_t> pq(input.size() - 2);
     for(std::size_t i = 0; i < input.size() - 2; ++i) 
-        pq.push_back(i);      
+        pq[i] = i;      
         
     while(!pq.empty()) {
         auto entry = pq.back();
@@ -91,9 +91,10 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
             }
         }
     }
-    
-    for(auto i: nodes)
-        boost::geometry::append(output, input[i]);
+ 
+	output.resize(nodes.size());
+	for(std::size_t i = 0; i < nodes.size(); ++i)
+		output[i] = input[nodes[i]];   
 }
 
 static inline void simplify(Polygon const &p, Polygon &result, double max_distance) 
@@ -121,9 +122,9 @@ static inline void simplify(Polygon const &p, Polygon &result, double max_distan
 
 	simplify(p.outer(), result.outer(), max_distance, inners_rtree);
 	if(boost::geometry::area(result.outer()) >= max_distance * max_distance) {
-		for(auto&& r: new_inners) {
+		for(auto& r: new_inners) {
 			std::reverse(r.begin(), r.end());
-			result.inners().push_back(r);
+			result.inners().push_back(std::move(r));
 		}
 	} 
 }
