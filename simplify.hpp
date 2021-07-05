@@ -47,12 +47,12 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
     for(std::size_t i = 0; i < input.size() - 1; ++i)
         rtree.insert({ input[i], input[i + 1] });    
 
-	for(std::size_t pq = input.size() - 1; pq--; ) {
+	for(std::size_t pq = input.size() - 2; pq--; ) {
         auto entry = pq;
         
         auto start = nodes[entry];
         auto middle = nodes[entry + 1];
-        auto end = nodes[entry + 2] % (input.size() - 1);
+        auto end = nodes[entry + 2];
 
         simplify_segment line(input[start], input[end]);
 
@@ -74,15 +74,11 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
             for(auto const &result: outer_rtree | boost::geometry::index::adaptors::queried(boost::geometry::index::intersects(line)))
 				++query_count;
 
-            if(query_count == 4) {
+            if(query_count == std::min<std::size_t>(4, nodes.size() - 1)) {
                 nodes.erase(nodes.begin() + entry + 1);
                 rtree.remove(simplify_segment(input[start], input[middle]));
                 rtree.remove(simplify_segment(input[middle], input[end]));
                 rtree.insert(line);
-        
-                if(entry + 2 < nodes.size()) {
-                    pq = start;             
-                }
             }
         }
     }
@@ -104,7 +100,7 @@ static inline void simplify(Polygon const &p, Polygon &result, double max_distan
 		simplify(p.inners()[i], new_inner, max_distance, outer_rtree);
 
 		std::reverse(new_inner.begin(), new_inner.end());
-		if(new_inner.size() > 2) {
+		if(new_inner.size() > 3 && boost::geometry::perimeter(new_inner) > 3 * max_distance) {
 			simplify_combine(new_inners, std::move(new_inner));
 		}
 	}
@@ -116,12 +112,15 @@ static inline void simplify(Polygon const &p, Polygon &result, double max_distan
 	} 
 
 	simplify(p.outer(), result.outer(), max_distance, inners_rtree);
-	if(result.outer().size() > 2) {
-		for(auto& r: new_inners) {
-			std::reverse(r.begin(), r.end());
-			result.inners().push_back(std::move(r));
-		}
-	} 
+	if(result.outer().size() <= 3 || boost::geometry::perimeter(result.outer()) <= 3 * max_distance) {
+		result.outer().clear();
+		return;
+	}
+
+	for(auto& r: new_inners) {
+		std::reverse(r.begin(), r.end());
+		result.inners().push_back(std::move(r));
+	}
 }
 
 static inline void simplify(MultiPolygon const &mp, MultiPolygon &result, double max_distance) 
