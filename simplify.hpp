@@ -38,7 +38,7 @@ template<
 	typename segment_t = boost::geometry::model::segment<point_t>,
 	typename rtree_t = boost::geometry::index::rtree<segment_t, boost::geometry::index::quadratic<16>>
 	>
-static inline ring_t simplify_ring(ring_t const &input, double distance, rtree_t const &outer_rtree = rtree_t())
+static inline ring_t simplify_ring(ring_t const &input, double distance, bool is_closed = true, rtree_t const &outer_rtree = rtree_t())
 {        
 	ring_t output;
 
@@ -78,8 +78,13 @@ static inline ring_t simplify_ring(ring_t const &input, double distance, rtree_t
 				++query_count;
             for(auto const &result: outer_rtree | boost::geometry::index::adaptors::queried(boost::geometry::index::intersects(line)))
 				++query_count;
+			
+			std::size_t expected_count = std::min<std::size_t>(4, nodes.size() - 1);
 
-            if(query_count == std::min<std::size_t>(4, nodes.size() - 1)) {
+			if(!is_closed && ((start == 0 || end == input.size() - 1))) 
+				expected_count = std::min<std::size_t>(expected_count, 2);
+
+            if(query_count == expected_count) {
                 nodes.erase(nodes.begin() + entry + 1);
                 rtree.remove(segment_t(input[start], input[middle]));
                 rtree.remove(segment_t(input[middle], input[end]));
@@ -112,7 +117,7 @@ static inline void simplify(boost::geometry::model::polygon<point_t> const &p, b
 		}));
 
 	for(auto const &inner: p.inners()) {
-		auto new_inner = impl::simplify_ring(inner, max_distance, outer_rtree);
+		auto new_inner = impl::simplify_ring(inner, max_distance, true, outer_rtree);
 
 		std::reverse(new_inner.begin(), new_inner.end());
 		if(new_inner.size() > 3 && boost::geometry::perimeter(new_inner) > 3 * max_distance) {
@@ -131,7 +136,7 @@ static inline void simplify(boost::geometry::model::polygon<point_t> const &p, b
 			}));
 	} 
 
-	result.outer() = impl::simplify_ring(p.outer(), max_distance, inners_rtree);
+	result.outer() = impl::simplify_ring(p.outer(), max_distance, true, inners_rtree);
 	if(result.outer().size() > 3 && boost::geometry::perimeter(result.outer()) > 3 * max_distance) {
 		output = std::move(result);
 	}
@@ -139,10 +144,9 @@ static inline void simplify(boost::geometry::model::polygon<point_t> const &p, b
 
 template<
 	typename point_t = boost::geometry::model::d2::point_xy<double>, 
-	typename polygon_t = boost::geometry::model::polygon<point_t>,
-	typename multi_polygon_t = boost::geometry::model::multi_polygon<polygon_t>
+	typename polygon_t = boost::geometry::model::polygon<point_t>
 	>
-static inline void simplify(multi_polygon_t const &mp, multi_polygon_t &result, double max_distance) 
+static inline void simplify(boost::geometry::model::multi_polygon<polygon_t> const &mp, boost::geometry::model::multi_polygon<polygon_t> &result, double max_distance) 
 {
 	for(auto const &p: mp) {
 		polygon_t new_p;
@@ -153,4 +157,30 @@ static inline void simplify(multi_polygon_t const &mp, multi_polygon_t &result, 
 	}
 }
 
+template<
+	typename point_t = boost::geometry::model::d2::point_xy<double>
+	>
+static inline void simplify(boost::geometry::model::linestring<point_t> const &ls, boost::geometry::model::linestring<point_t> &result, double max_distance) 
+{
+	if(ls.empty()) true;
+	bool is_closed = boost::geometry::equals(ls.front(), ls.back());
+	result = impl::simplify_ring(ls, max_distance, is_closed);
+}
+
+template<
+	typename point_t = boost::geometry::model::d2::point_xy<double>
+	>
+static inline void simplify(boost::geometry::model::multi_linestring<point_t> const &mls, boost::geometry::model::multi_linestring<point_t> &result, double max_distance) 
+{
+	for(auto const &ls: mls) {
+		if(ls.empty()) continue;
+
+		bool is_closed = boost::geometry::equals(ls.front(), ls.back());
+		auto new_ls = impl::simplify_ring(ls, max_distance, is_closed);
+
+    	if(!new_ls.empty()) {
+			impl::simplify_combine(result, std::move(new_ls));
+		}
+	}
+}
 #endif
