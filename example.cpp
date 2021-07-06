@@ -3,6 +3,11 @@
 #include <iostream>
 #include <chrono>
 
+typedef boost::geometry::model::d2::point_xy<double> Point;
+typedef boost::geometry::model::polygon<Point> Polygon;
+typedef boost::geometry::ring_type<Polygon>::type Ring;
+typedef boost::geometry::model::multi_polygon<Polygon> MultiPolygon;
+
 void benchmark(bool use_boost)
 {
 	// Benchmark overlapping approach
