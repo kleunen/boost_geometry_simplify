@@ -2,6 +2,8 @@
 #define __SIMPLIFY_H__
 
 #include <boost/geometry.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/irange.hpp>
 
 typedef boost::geometry::model::d2::point_xy<double> Point; 
 typedef boost::geometry::model::polygon<Point> Polygon;
@@ -43,9 +45,11 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
     for(std::size_t i = 0; i < input.size(); ++i) 
         nodes[i] = i;
 
-	simplify_rtree rtree;
-    for(std::size_t i = 0; i < input.size() - 1; ++i)
-        rtree.insert({ input[i], input[i + 1] });    
+	simplify_rtree rtree(
+		boost::irange<std::size_t>(0, input.size() - 1)
+		| boost::adaptors::transformed([&input](std::size_t i) {
+			return simplify_segment(input[i], input[i+1]);
+		}));
 
 	for(std::size_t pq = input.size() - 2; pq--; ) {
         auto entry = pq;
@@ -90,9 +94,11 @@ static inline void simplify(GeometryType const &input, GeometryType &output, dou
 
 static inline void simplify(Polygon const &p, Polygon &result, double max_distance) 
 {
-	simplify_rtree outer_rtree;
-	for(std::size_t j = 0; j < p.outer().size() - 1; ++j) 
-		outer_rtree.insert({ p.outer()[j], p.outer()[j + 1] });    
+	simplify_rtree outer_rtree(
+		boost::irange<std::size_t>(0, p.outer().size() - 1)
+		| boost::adaptors::transformed([&p](std::size_t i) { 
+			return simplify_segment(p.outer()[i], p.outer()[i+1]); 
+		}));
 
 	std::vector<Ring> new_inners;
 	for(size_t i = 0; i < p.inners().size(); ++i) {
@@ -107,8 +113,11 @@ static inline void simplify(Polygon const &p, Polygon &result, double max_distan
 
 	simplify_rtree inners_rtree;
 	for(auto const &inner: new_inners) {
-		for(std::size_t z = 0; z < inner.size() - 1; ++z) 
-			inners_rtree.insert({ inner[z], inner[z + 1] });    
+		inners_rtree.insert(
+			boost::irange<std::size_t>(0, inner.size() - 1)
+			| boost::adaptors::transformed([&inner](std::size_t i) {
+				return simplify_segment(inner[i], inner[i+1]);
+			}));
 	} 
 
 	simplify(p.outer(), result.outer(), max_distance, inners_rtree);
