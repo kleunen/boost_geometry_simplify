@@ -15,7 +15,7 @@ The end result is a polygon/multipolygon which is simplified and is valid.
 
 # Code example
 
-The simplify function works the same as the boost geometry simplify. It can only process polygons/multi-polygons. Linestrings are not invalid when self-intersecting and the normal boost geometry can be used. 
+The simplify function works the same as the boost geometry simplify.
 
 ````C++
 #include "simplify.hpp"
