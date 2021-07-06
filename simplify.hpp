@@ -179,7 +179,13 @@ static inline void simplify(boost::geometry::model::multi_linestring<point_t> co
 		auto new_ls = impl::simplify_ring(ls, max_distance, is_closed);
 
     	if(!new_ls.empty()) {
-			impl::simplify_combine(result, std::move(new_ls));
+			if(boost::geometry::intersects(new_ls, result)) {
+				boost::geometry::model::multi_linestring<point_t> output;
+				boost::geometry::union_(new_ls, result, output);
+				result = std::move(output);
+			} else {
+				result.push_back(std::move(new_ls));
+			}
 		}
 	}
 }
