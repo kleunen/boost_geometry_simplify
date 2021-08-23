@@ -48,9 +48,9 @@ static inline ring_t simplify_ring(ring_t const &input, double distance, bool is
 
 	rtree_t rtree(
 		boost::irange<std::size_t>(0, input.size() - 1)
-		| boost::adaptors::transformed([&input](std::size_t i) {
+		| boost::adaptors::transformed(std::function<segment_t(std::size_t)>([&input](std::size_t i) {
 			return segment_t(input[i], input[i+1]);
-		}));
+		})));
 
 	for(std::size_t pq = input.size() - 2; pq--; ) {
         auto entry = pq;
@@ -112,9 +112,9 @@ static inline void simplify(boost::geometry::model::polygon<point_t> const &p, b
 
 	rtree_t outer_rtree(
 		boost::irange<std::size_t>(0, p.outer().size() - 1)
-		| boost::adaptors::transformed([&p](std::size_t i) { 
+		| boost::adaptors::transformed(std::function<segment_t(std::size_t)>([&p](std::size_t i) { 
 			return segment_t(p.outer()[i], p.outer()[i+1]); 
-		}));
+		})));
 
 	for(auto const &inner: p.inners()) {
 		auto new_inner = impl::simplify_ring(inner, max_distance, true, outer_rtree);
@@ -131,9 +131,9 @@ static inline void simplify(boost::geometry::model::polygon<point_t> const &p, b
 
 		inners_rtree.insert(
 			boost::irange<std::size_t>(0, inner.size() - 1)
-			| boost::adaptors::transformed([&inner](std::size_t i) {
+			| boost::adaptors::transformed(std::function<segment_t(std::size_t)>([&inner](std::size_t i) {
 				return segment_t(inner[i], inner[i+1]);
-			}));
+			})));
 	} 
 
 	result.outer() = impl::simplify_ring(p.outer(), max_distance, true, inners_rtree);
